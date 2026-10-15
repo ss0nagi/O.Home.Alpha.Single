@@ -19,7 +19,7 @@ const VAR_NAME: Partial<Record<CursorState, string>> = {
 
 // 상태 → 적용 셀렉터 (커서 폴백 포함)
 const RULES: Record<CursorState, { sel: string; fallback: string }> = {
-  default: { sel: 'body, .page, .panel', fallback: 'auto' },
+  default: { sel: 'body, *, .page, .panel', fallback: 'auto' },
   pointer: {
     sel: [
       'a', 'button', 'label', '.btn', '.tag', '.pill', '.k-select', '.k-toggle', '.k-check', '.k-radio',
@@ -29,7 +29,7 @@ const RULES: Record<CursorState, { sel: string; fallback: string }> = {
     fallback: 'pointer',
   },
   text: { sel: 'input, textarea, [contenteditable="true"], .re-content', fallback: 'text' },
-  active: { sel: 'body:active, *:active', fallback: 'auto' },
+  active: { sel: 'body:active', fallback: 'default' },
   // .wgt는 편집모드에서만 드래그 가능 — 평상시 배너 등 위젯 위에서 grab이 뜨던 문제 수정 (v1.9)
   // 편집모드에선 메인 영역 전체 grab 통일 — 드래그 중 내부 요소를 지나며 커서가 튀지 않게
   // 편집 핸들(.rs 크기조절 · .rr 기울기)은 제외 — 전체 grab 규칙(!important)이 핸들 커서를 덮어
@@ -41,7 +41,6 @@ const RULES: Record<CursorState, { sel: string; fallback: string }> = {
   rsEw: { sel: '.cur-rs-ew', fallback: 'ew-resize' },
   rsNs: { sel: '.cur-rs-ns', fallback: 'ns-resize' },
 };
-
 interface AnimState { key: CursorState; urls: string[]; delays: number[] }
 
 export function CursorLayer() {
