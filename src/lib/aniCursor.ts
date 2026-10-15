@@ -59,3 +59,26 @@ export function isCur(buf: ArrayBuffer): boolean {
   const dv = new DataView(buf);
   return dv.getUint16(0, true) === 0 && dv.getUint16(2, true) === 2;
 }
+
+export interface CurInfo { w: number; h: number; hx: number; hy: number }
+
+/** .cur/.ico 파일에서 가장 큰 이미지의 크기와 내장 핫스팟을 읽는다 (DOM 커서가 위치를 맞추는 데 사용) */
+export function curInfo(buf: ArrayBuffer): CurInfo | null {
+  if (buf.byteLength < 22) return null;
+  const dv = new DataView(buf);
+  if (dv.getUint16(0, true) !== 0) return null;
+  const type = dv.getUint16(2, true);
+  if (type !== 1 && type !== 2) return null;
+  const n = dv.getUint16(4, true);
+  let best: CurInfo | null = null;
+  for (let i = 0; i < n; i++) {
+    const o = 6 + i * 16;
+    if (o + 16 > buf.byteLength) break;
+    const w = dv.getUint8(o) || 256;
+    const h = dv.getUint8(o + 1) || 256;
+    const hx = type === 2 ? Math.min(dv.getUint16(o + 4, true), w - 1) : 0;
+    const hy = type === 2 ? Math.min(dv.getUint16(o + 6, true), h - 1) : 0;
+    if (!best || w > best.w) best = { w, h, hx, hy };
+  }
+  return best;
+}
