@@ -96,9 +96,11 @@ export function mountDomCursor(st: CursorSettings, loadBlob: BlobLoader): () => 
     const ox = info ? info.hx : hx;
     const oy = info ? info.hy : hy;
     img.style.cssText =
-      `position:absolute;left:${-ox}px;top:${-oy}px;max-width:none;max-height:none;margin:0;padding:0;` +
+      `position:absolute;left:0;top:0;max-width:none;max-height:none;margin:0;padding:0;` +
       'opacity:0;user-select:none;-webkit-user-drag:none;pointer-events:none;' +
       (info ? `width:${info.w}px;height:${info.h}px;` : '');
+    img.dataset.hx = String(ox);
+    img.dataset.hy = String(oy);
     img.src = url;
     host.appendChild(img);
     // 미리 디코딩해 두면 상태가 바뀔 때 이미지가 한 박자 늦게 뜨는 일이 없다
@@ -130,6 +132,20 @@ export function mountDomCursor(st: CursorSettings, loadBlob: BlobLoader): () => 
   })();
 
   function start() {
+    // ── 위치 — 화면의 **기기 픽셀**에 정확히 맞춘다 ──
+    // 윈도우 배율이 125%·150%일 때 마우스 좌표(clientX)는 소수이고, 그대로 그리면 그림이 픽셀 사이에 걸쳐
+    // 흐릿해 보인다. (좌표 − 핫스팟)을 기기 픽셀 단위로 반올림해 항상 또렷하게 찍는다.
+    let lastX = 0;
+    let lastY = 0;
+    let hotX = 0;
+    let hotY = 0;
+    const place = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const px = Math.round((lastX - hotX) * dpr) / dpr;
+      const py = Math.round((lastY - hotY) * dpr) / dpr;
+      host.style.transform = `translate3d(${px}px,${py}px,0)`;
+    };
+
     // ── 표시할 스프라이트 전환 ──
     let shown: CursorState | null = null;
     let frameIdx = 0;
@@ -138,6 +154,9 @@ export function mountDomCursor(st: CursorSettings, loadBlob: BlobLoader): () => 
     // (스텝 기준으로 하면 방금 켠 그림을 뒤 스텝의 같은 그림이 다시 꺼서 커서가 통째로 사라진다)
     const setFrame = (sp: Sprite, i: number) => {
       const on = sp.frames[i].img;
+      hotX = Number(on.dataset.hx) || 0;
+      hotY = Number(on.dataset.hy) || 0;
+      place();
       on.style.opacity = '1';
       for (const im of sp.imgs) if (im !== on) im.style.opacity = '0';
     };
@@ -208,7 +227,9 @@ export function mountDomCursor(st: CursorSettings, loadBlob: BlobLoader): () => 
     };
 
     const move = (x: number, y: number) => {
-      host.style.transform = `translate3d(${x}px,${y}px,0)`;
+      lastX = x;
+      lastY = y;
+      place();
     };
 
     const onMove = (e: PointerEvent) => {
