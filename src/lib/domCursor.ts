@@ -43,7 +43,8 @@ function toIntent(raw: string, el: Element): Intent {
 }
 
 interface Frame { img: HTMLImageElement }
-interface Sprite { frames: Frame[]; delays: number[] }
+// imgs = 중복 없는 그림 목록, frames = 재생 순서(같은 그림이 여러 스텝에 다시 나올 수 있다)
+interface Sprite { frames: Frame[]; imgs: HTMLImageElement[]; delays: number[] }
 
 export type BlobLoader = (id: string) => Promise<Blob | null | undefined>;
 
@@ -118,9 +119,10 @@ export function mountDomCursor(st: CursorSettings, loadBlob: BlobLoader): () => 
       if (ani) {
         const imgs = await Promise.all(ani.frames.map(async f => makeImg(f, curInfo(await f.arrayBuffer()), 0, 0)));
         if (cancelled) return;
-        sprites[key] = { frames: ani.steps.map(i => ({ img: imgs[i] })), delays: ani.delays };
+        sprites[key] = { frames: ani.steps.map(i => ({ img: imgs[i] })), imgs, delays: ani.delays };
       } else {
-        sprites[key] = { frames: [{ img: makeImg(blob, curInfo(buf), entry.hx, entry.hy) }], delays: [] };
+        const one = makeImg(blob, curInfo(buf), entry.hx, entry.hy);
+        sprites[key] = { frames: [{ img: one }], imgs: [one], delays: [] };
       }
     }
     if (cancelled || Object.keys(sprites).length === 0) return;
@@ -132,13 +134,19 @@ export function mountDomCursor(st: CursorSettings, loadBlob: BlobLoader): () => 
     let shown: CursorState | null = null;
     let frameIdx = 0;
     let frameTimer = 0;
-    const setFrame = (sp: Sprite, i: number) => sp.frames.forEach((f, j) => { f.img.style.opacity = j === i ? '1' : '0'; });
+    // 같은 그림이 여러 스텝에 재사용되는 애니메이션이 있어서, 스텝 번호가 아니라 "그림" 기준으로 켜고 끈다
+    // (스텝 기준으로 하면 방금 켠 그림을 뒤 스텝의 같은 그림이 다시 꺼서 커서가 통째로 사라진다)
+    const setFrame = (sp: Sprite, i: number) => {
+      const on = sp.frames[i].img;
+      on.style.opacity = '1';
+      for (const im of sp.imgs) if (im !== on) im.style.opacity = '0';
+    };
     const showSprite = (k: CursorState | null) => {
       if (k === shown) return;
       if (shown) {
         clearTimeout(frameTimer);
         timers.delete(frameTimer);
-        sprites[shown]!.frames.forEach(f => { f.img.style.opacity = '0'; });
+        sprites[shown]!.imgs.forEach(im => { im.style.opacity = '0'; });
       }
       shown = k;
       if (!k) return;
